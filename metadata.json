@@ -1,0 +1,5 @@
+{
+  "name": "Kids Dance Group Manager",
+  "description": "An application to manage student payments for a kids' dance group, with data stored and updated in a Google Sheet. It allows viewing students by batch, updating their last payment date, and exporting the data.",
+  "requestFramePermissions": []
+}
