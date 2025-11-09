@@ -1,12 +1,8 @@
-// Fix: Removed the triple-slash directive for "vite/client" which was causing a "Cannot find type definition file" error.
-// This error indicates a potential tsconfig.json misconfiguration.
 import { Batches } from '../types';
 
 // The Google Apps Script URL is now loaded from an environment variable.
 // This is crucial for security and deployment on platforms like Vercel.
-// Fix: Added a type assertion to `import.meta.env` as a workaround for the missing Vite client types,
-// which resolves the "Property 'env' does not exist" error.
-export const APPS_SCRIPT_URL = (import.meta.env as any).VITE_GOOGLE_APPS_SCRIPT_URL || '';
+export const APPS_SCRIPT_URL = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL || '';
 
 interface FetchResponse {
   success: boolean;
