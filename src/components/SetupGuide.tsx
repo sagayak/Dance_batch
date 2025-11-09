@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const appsScriptCode = `
@@ -37,7 +36,7 @@ function doGet(e) {
       const paymentDateValue = row[PAYMENT_DATE_COL - 1];
       let formattedDate = paymentDateValue;
       if (paymentDateValue instanceof Date) {
-        formattedDate = Utilities.formatDate(paymentDateValue, spreadsheetTimeZone, "yyyy-MM-dd");
+        formattedDate = Utilities.formatDate(paymentDateValue, spreadsheetTimeZone, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       }
 
       const student = {
@@ -56,7 +55,7 @@ function doGet(e) {
 
     const jsonOutput = ContentService
       .createTextOutput(JSON.stringify({ success: true, data: studentsByBatch }))
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(ContentService.MMimeType.JSON);
     
     return setCorsHeaders(jsonOutput);
 
@@ -70,24 +69,37 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const { rowIndex } = e.parameter;
-
-    if (!rowIndex) {
-      throw new Error("Student row index is required for update.");
-    }
+    const { rowIndex, rowIndexes, newDate } = e.parameter;
     
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-     if (!sheet) {
+    if (!sheet) {
         throw new Error("Sheet '" + SHEET_NAME + "' not found.");
     }
     
-    const today = new Date();
-    const formattedDate = today.getFullYear() + '-' + ('0' + (today.getMonth() + 1)).slice(-2) + '-' + ('0' + today.getDate()).slice(-2);
+    // Use the provided newDate, or default to today's date.
+    const dateToSet = newDate ? newDate : new Date();
 
-    sheet.getRange(parseInt(rowIndex, 10), PAYMENT_DATE_COL).setValue(formattedDate);
+    if (rowIndexes) {
+      // Handle bulk update
+      const indexesToUpdate = rowIndexes.split(',');
+      if (indexesToUpdate.length === 0) {
+        throw new Error("No row indexes provided for bulk update.");
+      }
+      indexesToUpdate.forEach(idx => {
+        sheet.getRange(parseInt(idx, 10), PAYMENT_DATE_COL).setValue(dateToSet);
+      });
+    } else if (rowIndex) {
+      // Handle single update
+      sheet.getRange(parseInt(rowIndex, 10), PAYMENT_DATE_COL).setValue(dateToSet);
+    } else {
+      throw new Error("Row index or indexes are required for update.");
+    }
     
+    // Format the response date consistently
+    const formattedResponseDate = Utilities.formatDate(new Date(dateToSet), "GMT", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+
     const jsonOutput = ContentService
-      .createTextOutput(JSON.stringify({ success: true, message: "Payment date updated.", updatedDate: formattedDate }))
+      .createTextOutput(JSON.stringify({ success: true, message: "Payment date(s) updated.", updatedDate: formattedResponseDate }))
       .setMimeType(ContentService.MimeType.JSON);
 
     return setCorsHeaders(jsonOutput);
@@ -135,7 +147,7 @@ const SetupGuide: React.FC = () => {
           <ul className="list-disc list-inside space-y-1 pl-4">
             <li>In your Google Sheet, go to <span className="font-semibold">Extensions &gt; Apps Script</span>.</li>
             <li>Delete any boilerplate code in the editor.</li>
-            <li>Copy the code below and paste it into the editor. <span className="font-bold text-red-600">(Note: This version adds CORS headers, which is required for Vercel deployment.)</span></li>
+            <li>Copy the code below and paste it into the editor. <span className="font-bold text-red-600">(Note: The backend script is updated to handle date edits.)</span></li>
           </ul>
           <div className="mt-3 relative">
             <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Batches } from './types';
-import { fetchData, updatePaymentDate, isSetupNeeded } from './services/googleSheetsService';
+import { fetchData, updatePaymentDate, bulkUpdatePaymentDates, isSetupNeeded, updatePaymentDateWithValue } from './services/googleSheetsService';
 import Header from './components/Header';
 import BatchCard from './components/BatchCard';
 import Loader from './components/Loader';
@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState<boolean>(false);
+  const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set());
 
   const loadData = useCallback(async () => {
     if (isSetupNeeded()) {
@@ -39,45 +40,91 @@ const App: React.FC = () => {
     loadData();
   }, [loadData]);
 
+  const handleToggleSelection = useCallback((rowIndex: number) => {
+    setSelectedStudents(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(rowIndex)) {
+        newSelected.delete(rowIndex);
+      } else {
+        newSelected.add(rowIndex);
+      }
+      return newSelected;
+    });
+  }, []);
+
+  const handleToggleSelectAllInBatch = useCallback((studentRowIndexes: number[]) => {
+    setSelectedStudents(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      const allInBatchSelected = studentRowIndexes.every(id => newSelected.has(id));
+
+      if (allInBatchSelected) {
+        studentRowIndexes.forEach(id => newSelected.delete(id));
+      } else {
+        studentRowIndexes.forEach(id => newSelected.add(id));
+      }
+      return newSelected;
+    });
+  }, []);
+
+  const updateStudentDates = (rowIndexes: number[], date: string) => {
+    setBatches(prevBatches => {
+      if (!prevBatches) return null;
+      const newBatches = JSON.parse(JSON.stringify(prevBatches));
+      for (const batchKey in newBatches) {
+        newBatches[batchKey].forEach((student: any, index: number) => {
+          if (rowIndexes.includes(student.rowIndex)) {
+            newBatches[batchKey][index].lastPaymentDate = date;
+          }
+        });
+      }
+      return newBatches;
+    });
+  };
+
   const handleUpdatePayment = async (rowIndex: number): Promise<void> => {
-    const originalBatches = JSON.parse(JSON.stringify(batches)); // Deep copy for optimistic update
+    const originalBatches = JSON.parse(JSON.stringify(batches));
     try {
-      // Optimistic UI Update
-      setBatches(prevBatches => {
-        if (!prevBatches) return null;
-        const newBatches = { ...prevBatches };
-        for (const batchKey in newBatches) {
-          const studentIndex = newBatches[batchKey].findIndex(s => s.rowIndex === rowIndex);
-          if (studentIndex > -1) {
-            // Placeholder for new date, actual value comes from response
-            newBatches[batchKey][studentIndex].lastPaymentDate = 'Updating...';
-            break;
-          }
-        }
-        return newBatches;
-      });
-
+      updateStudentDates([rowIndex], 'Updating...');
       const updatedDate = await updatePaymentDate(rowIndex);
-
-      // Final UI Update with server-confirmed date
-      setBatches(prevBatches => {
-         if (!prevBatches) return null;
-        const newBatches = { ...prevBatches };
-        for (const batchKey in newBatches) {
-          const studentIndex = newBatches[batchKey].findIndex(s => s.rowIndex === rowIndex);
-          if (studentIndex > -1) {
-            newBatches[batchKey][studentIndex].lastPaymentDate = updatedDate;
-            break;
-          }
-        }
-        return newBatches;
-      });
-
+      updateStudentDates([rowIndex], updatedDate);
     } catch (err) {
       console.error(err);
-      // Revert on failure
       setBatches(originalBatches);
-      throw err; // Re-throw to be caught in the component
+      throw err;
+    }
+  };
+
+  const handleEditPaymentDate = async (rowIndex: number, newDate: string): Promise<void> => {
+    const originalBatches = JSON.parse(JSON.stringify(batches));
+    try {
+      updateStudentDates([rowIndex], 'Updating...');
+      const updatedDate = await updatePaymentDateWithValue(rowIndex, newDate);
+      updateStudentDates([rowIndex], updatedDate);
+    } catch (err) {
+      console.error(err);
+      setBatches(originalBatches);
+      throw err;
+    }
+  };
+
+  const handleBulkUpdatePayment = async (rowIndexes: number[]): Promise<void> => {
+    if (rowIndexes.length === 0) return;
+    const originalBatches = JSON.parse(JSON.stringify(batches));
+     try {
+      updateStudentDates(rowIndexes, 'Updating...');
+      const updatedDate = await bulkUpdatePaymentDates(rowIndexes);
+      updateStudentDates(rowIndexes, updatedDate);
+
+      // Clear selection after successful update
+      setSelectedStudents(prevSelected => {
+        const newSelected = new Set(prevSelected);
+        rowIndexes.forEach(id => newSelected.delete(id));
+        return newSelected;
+      });
+    } catch (err) {
+      console.error(err);
+      setBatches(originalBatches);
+      throw err;
     }
   };
 
@@ -107,6 +154,11 @@ const App: React.FC = () => {
               batchName={batchName} 
               students={students}
               onUpdatePayment={handleUpdatePayment}
+              onEditPaymentDate={handleEditPaymentDate}
+              selectedStudents={selectedStudents}
+              onToggleSelection={handleToggleSelection}
+              onToggleSelectAll={handleToggleSelectAllInBatch}
+              onBulkUpdate={handleBulkUpdatePayment}
             />
           ))}
         </div>
