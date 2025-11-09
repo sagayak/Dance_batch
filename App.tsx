@@ -46,13 +46,11 @@ const App: React.FC = () => {
       setBatches(prevBatches => {
         if (!prevBatches) return null;
         const newBatches = { ...prevBatches };
-        let found = false;
         for (const batchKey in newBatches) {
           const studentIndex = newBatches[batchKey].findIndex(s => s.rowIndex === rowIndex);
           if (studentIndex > -1) {
             // Placeholder for new date, actual value comes from response
             newBatches[batchKey][studentIndex].lastPaymentDate = 'Updating...';
-            found = true;
             break;
           }
         }
@@ -65,12 +63,10 @@ const App: React.FC = () => {
       setBatches(prevBatches => {
          if (!prevBatches) return null;
         const newBatches = { ...prevBatches };
-         let found = false;
         for (const batchKey in newBatches) {
           const studentIndex = newBatches[batchKey].findIndex(s => s.rowIndex === rowIndex);
           if (studentIndex > -1) {
             newBatches[batchKey][studentIndex].lastPaymentDate = updatedDate;
-            found = true;
             break;
           }
         }
