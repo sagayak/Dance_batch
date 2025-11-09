@@ -20,15 +20,19 @@ const App: React.FC = () => {
 
     let totalStudents = 0;
     let overdueStudents = 0;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
     for (const batchKey in batches) {
       const students = batches[batchKey];
       totalStudents += students.length;
       students.forEach(student => {
         const paymentDate = new Date(student.lastPaymentDate);
-        if (paymentDate < thirtyDaysAgo) {
+        const paymentMonth = paymentDate.getMonth();
+        const paymentYear = paymentDate.getFullYear();
+
+        if (paymentYear !== currentYear || paymentMonth !== currentMonth) {
           overdueStudents++;
         }
       });
