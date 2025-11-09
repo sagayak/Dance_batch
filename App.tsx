@@ -1,16 +1,41 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Batches } from './types';
 import { fetchData, updatePaymentDate, isSetupNeeded } from './services/googleSheetsService';
 import Header from './components/Header';
 import BatchCard from './components/BatchCard';
 import Loader from './components/Loader';
 import SetupGuide from './components/SetupGuide';
+import Report from './components/Report';
 
 const App: React.FC = () => {
   const [batches, setBatches] = useState<Batches | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState<boolean>(false);
+
+  const reportData = useMemo(() => {
+    if (!batches) {
+      return { totalStudents: 0, overdueStudents: 0 };
+    }
+
+    let totalStudents = 0;
+    let overdueStudents = 0;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    for (const batchKey in batches) {
+      const students = batches[batchKey];
+      totalStudents += students.length;
+      students.forEach(student => {
+        const paymentDate = new Date(student.lastPaymentDate);
+        if (paymentDate < thirtyDaysAgo) {
+          overdueStudents++;
+        }
+      });
+    }
+
+    return { totalStudents, overdueStudents };
+  }, [batches]);
 
   const loadData = useCallback(async () => {
     if (isSetupNeeded()) {
@@ -129,6 +154,7 @@ const App: React.FC = () => {
       <div className="container mx-auto max-w-7xl">
         <Header batches={batches} />
         <main>
+          <Report totalStudents={reportData.totalStudents} overdueStudents={reportData.overdueStudents} />
           {renderContent()}
         </main>
       </div>
